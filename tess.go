@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/otiai10/gosseract/v2"
@@ -16,7 +18,6 @@ var (
 )
 
 func System(cmd string) error {
-	fmt.Printf(cmd)
 	c := exec.Command("sh", "-c", cmd)
 	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
@@ -35,15 +36,14 @@ func Shot(dimensions string, output string) error {
 		fmt.Fprintln(os.Stderr, "Could not find grim")
 		return err
 	}
-
 	cmd := fmt.Sprintf("%s -g %s %s", grimPath, dimensions, output)
-
 	return System(cmd)
 }
 
-func Sel(sel string) (string, error) {
-	if sel == "" {
-		sel = "slurp"
+func Select() (string, error) {
+	sel, err := exec.LookPath("slurp")
+	if err != nil {
+		return "", err
 	}
 
 	slurp := exec.Command(sel, "-o")
@@ -57,30 +57,51 @@ func Sel(sel string) (string, error) {
 	return out, nil
 }
 
-func main() {
-	dim, err := Sel("slurp")
+func cleanup(img string) error {
+	img, err := filepath.Abs(img)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
+
+	err = os.Remove(img)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func main() {
+	dim, err := Select()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// screen dimensions
 	dim = fmt.Sprintf("'%s'", dim)
 
+	// output jpg
 	out := time.Now()
-	output := fmt.Sprintf("%v-%v-%v_%v-%v.jpg",
+	output := fmt.Sprintf("/tmp/%v-%v-%v_%v-%v.jpg",
 		out.Month(),
 		out.Day(),
 		out.Year(),
 		out.Hour(),
 		out.Minute(),
 	)
-
 	err = Shot(dim, output)
 	if err != nil {
 		fmt.Println(err)
 	}
 
+	// tesseract
 	client := gosseract.NewClient()
 	defer client.Close()
 	client.SetImage(output)
+
 	text, _ := client.Text()
 	fmt.Println(text)
+
+	if err := cleanup(output); err != nil {
+		log.Fatal(err)
+	}
 }
