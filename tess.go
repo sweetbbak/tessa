@@ -88,6 +88,8 @@ func main() {
 		out.Hour(),
 		out.Minute(),
 	)
+
+	go notifyLinux("tessa", "tessa", "screenshot taken", "/usr/share/icons/Kanagawa/categories/symbolic/appimagekit-cacher-symbolic.svg")
 	err = Shot(dim, output)
 	if err != nil {
 		fmt.Println(err)
